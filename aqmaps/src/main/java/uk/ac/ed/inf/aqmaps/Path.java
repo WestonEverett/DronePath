@@ -5,36 +5,49 @@ import com.mapbox.geojson.Point;
 
 public class Path {
 	private ArrayList<Instruction> instructions;
-	private Point start;
-	private Point end;
+	private Point startLocation;
+	private Point endLocation;
 	public int moveCount;
 	private double moveLength = .0003;
+	private Hashtable<List<Integer>, Node> generatedNodes;
 	
 	public Path(Point start, Point end) {
-		this.start = start;
-		this.end = end;
+		this.startLocation = start;
+		this.endLocation = end;
 		this.instructions = getPathAStar();
 		this.moveCount = instructions.size(); 
 	}
 	
+	private class Node {
+		final List<Integer> coordinates;
+		final Point location;
+		
+		public Node(List<Integer> coordinates, Point location) {
+			this.coordinates = coordinates;
+			this.location = location;
+		}
+	}
+	
 	private ArrayList<Instruction> getPathAStar(){
 		
-		Comparator<Point> pointComparator = (p1, p2) -> {return (int) (heuristic(p1,end) > heuristic(p2,end) ? 1 : -1);};
+		Node startNode = new Node(Arrays.asList(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0), startLocation);
+        generatedNodes.put(startNode.coordinates, startNode);
         
-		var openSet = new PriorityQueue<Point>(pointComparator);
-		openSet.add(start);
+        Comparator<Node> nodeComparator = (p1, p2) -> {return (int) (heuristic(p1.location,endLocation) > heuristic(p2.location,endLocation) ? 1 : -1);};
+		var openSet = new PriorityQueue<Node>(nodeComparator);
+		openSet.add(startNode);
 		
-		var cameFrom = new Hashtable<Point,Point>();
+		var cameFrom = new Hashtable<Node,Node>();
 		
-		var gScore = new Hashtable<Point, Double>();
-		gScore.put(start, 0.);
+		var gScore = new Hashtable<Node, Double>();
+		gScore.put(startNode, 0.);
 		
-		var fScore = new Hashtable<Point, Double>();
-		fScore.put(start, heuristic(start, end));
+		var fScore = new Hashtable<Node, Double>();
+		fScore.put(startNode, heuristic(startLocation, endLocation));
 		
 		while(!openSet.isEmpty()) {
 			var current = openSet.peek();
-			for(Point node : openSet) {
+			for(Node node : openSet) {
 				if(fScore.getOrDefault(node, Double.POSITIVE_INFINITY) < fScore.get(current)) {
 					current = node;
 				}
@@ -42,7 +55,7 @@ public class Path {
 			
 			current = openSet.poll();
 			
-			if(getEuclid(current, end) < .0002) {
+			if(getEuclid(current.location, endLocation) < .0002) {
 				//System.out.println("Reconstructing Path");
 				return reconstructPath(cameFrom, current);
 			}
@@ -50,13 +63,13 @@ public class Path {
 			var neighbors = getNeighbors(current);
 			while(!neighbors.isEmpty()) {
 				var neighbor = neighbors.poll();
-				var tentativeGScore = pointIsValid(neighbor) ? gScore.get(current) + moveLength : Double.POSITIVE_INFINITY;
+				var tentativeGScore = pointIsValid(neighbor.location) ? gScore.get(current) + moveLength : Double.POSITIVE_INFINITY;
 				
 				if(tentativeGScore < gScore.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
 					
 					cameFrom.put(neighbor, current);
 					gScore.put(neighbor, tentativeGScore);
-					fScore.put(neighbor, tentativeGScore + heuristic(neighbor,end));
+					fScore.put(neighbor, tentativeGScore + heuristic(neighbor.location,endLocation));
 					//System.out.println(fScore.get(neighbor) + "," + gScore.get(neighbor));
 					if(!openSet.contains(neighbor)) {
 						openSet.add(neighbor);
@@ -74,26 +87,45 @@ public class Path {
 		return true;
 	}
 	
-	private PriorityQueue<Point> getNeighbors(Point current){
+	private PriorityQueue<Node> getNeighbors(Node current){
 		
-		Comparator<Point> pointComparator = (p1, p2) -> {return (int) (heuristic(p1,end) > heuristic(p2,end) ? 1 : -1);};
-        var neighbors = new PriorityQueue<Point>(pointComparator);
+		Comparator<Node> nodeComparator = (p1, p2) -> {return (int) (heuristic(p1.location,endLocation) > heuristic(p2.location,endLocation) ? 1 : -1);};
+        var neighbors = new PriorityQueue<Node>(nodeComparator);
 		
 		for(int degreeAngle = 0; degreeAngle < 360; degreeAngle += 10) {
-			var angle = degreeAngle * Math.PI/180;
-			neighbors.add(Point.fromLngLat(current.longitude() + (moveLength * Math.cos(angle)), current.latitude() + (moveLength * Math.sin(angle))));
+			var newCoordinates = new ArrayList<Integer>(current.coordinates);
+			
+			int stepDirection = degreeAngle/10;
+			
+			if(stepDirection < 18) {
+				newCoordinates.set(stepDirection, newCoordinates.get(stepDirection) + 1);
+			}
+			else {
+				newCoordinates.set(stepDirection % 18, newCoordinates.get(stepDirection) - 1);
+			}
+			
+			if(generatedNodes.containsKey(newCoordinates)) {
+				neighbors.add(generatedNodes.get(newCoordinates));
+			}
+			else {
+				var angle = degreeAngle * Math.PI/180;
+				var point = Point.fromLngLat(current.location.longitude() + (moveLength * Math.cos(angle)), current.location.latitude() + (moveLength * Math.sin(angle)));
+				var newNode = new Node(newCoordinates, point);
+				generatedNodes.put(newCoordinates, newNode);
+				neighbors.add(newNode);
+			}
 		}
 		
 		return neighbors;
 	}
 	
-	private ArrayList<Instruction> reconstructPath(Hashtable<Point, Point> cameFrom, Point current){
+	private ArrayList<Instruction> reconstructPath(Hashtable<Node, Node> cameFrom, Node current){
 		var instructionSet = new ArrayList<Instruction>();
 		
 		while(cameFrom.containsKey(current)) {
 			var last = current;
 			current = cameFrom.get(current);
-			instructionSet.add(0, new Instruction(current, last, null));
+			instructionSet.add(0, new Instruction(current.location, last.location, null));
 		}
 		
 		return instructionSet;
