@@ -31,16 +31,33 @@ public class App
     		node.setLngLat(tempLocation.getLng(), tempLocation.getLat());
     	}
     	
+    	var response = getDataFromURI("http://localhost:" + port + "/buildings/no-fly-zones.geojson");
+    	var buildingCollection = FeatureCollection.fromJson(response.body());
+    	var buildingFeatures = buildingCollection.features();
+    	var buildingCoordinates = new ArrayList<double[][]>();
     	
+    	for(Feature feat : buildingFeatures) {
+    		buildingCoordinates.add(new Gson().fromJson(feat.toJson(), Geometry.class).geometry.coordinates[0]);
+    	}
+    	//buildingCoordinates.clear();
     	
     	List<Feature> features = getPointFeatures(sensorNodeList);
-    	features.add(getLineFeatures(sensorNodeList));
+    	features.addAll(buildingFeatures);
+    	features.add(getLineFeatures(sensorNodeList, buildingCoordinates));
     	System.out.println(FeatureCollection.fromFeatures(features).toJson());  
     	
     	
     }
     
-    private static Feature getLineFeatures(ArrayList<SensorNode> sensorNodeList) {
+    class Geometry {
+        GeometryData geometry;
+    }
+    class GeometryData {
+        String type;
+        double[][][] coordinates;
+    }
+    
+    private static Feature getLineFeatures(ArrayList<SensorNode> sensorNodeList, ArrayList<double[][]> buildingCoordinates) {
     	
     	RouteFinder finder = new RouteFinder(sensorNodeList);
     	var optOrder = finder.tspInsertion();
@@ -51,7 +68,7 @@ public class App
     	int index2 = optOrder.get(1);
     	Point startPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());
     	Point aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index2).getLng(), sensorNodeList.get(index2).getLat());
-    	fullPath.add(new Path(startPoint, aimedEndPoint));
+    	fullPath.add(new Path(startPoint, aimedEndPoint, buildingCoordinates));
     	
     	for(int i = 1; i < optOrder.size(); i++) {
     		
@@ -60,18 +77,21 @@ public class App
         	startPoint = fullPath.get(i - 1).actualEndLocation;
         	aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());
         	
-    		fullPath.add(new Path(startPoint, aimedEndPoint));
+    		fullPath.add(new Path(startPoint, aimedEndPoint, buildingCoordinates));
     	}
     	
     	ArrayList<Point> pointList = new ArrayList<Point>();
     	
+    	int counter = 0;
+    	
     	for(Path path : fullPath) {
+    		counter += path.moveCount;
     		for(Instruction inst : path.instructions) {
     			pointList.add(inst.getPreMove());
     			pointList.add(inst.getPostMove());
     		}
     	}
-    	
+    	System.out.println(counter);
     	return Feature.fromGeometry(LineString.fromLngLats(pointList));
     }
     

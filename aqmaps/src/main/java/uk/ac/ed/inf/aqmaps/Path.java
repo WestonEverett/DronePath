@@ -1,10 +1,13 @@
 package uk.ac.ed.inf.aqmaps;
+import java.awt.geom.Line2D;
 import java.util.*;
 
+import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.Point;
 
 public class Path {
 	public ArrayList<Instruction> instructions;
+	private ArrayList<double[][]> buildingCoordinates;
 	private Point startLocation;
 	private Point endLocation;
 	public Point actualEndLocation;
@@ -12,7 +15,8 @@ public class Path {
 	private double moveLength = .0003;
 	private Hashtable<List<Integer>, Node> generatedNodes;
 	
-	public Path(Point start, Point end) {
+	public Path(Point start, Point end, ArrayList<double[][]> buildingCoordinates) {
+		this.buildingCoordinates = buildingCoordinates;
 		this.startLocation = start;
 		this.endLocation = end;
 		generatedNodes = new Hashtable<List<Integer>, Node>();
@@ -62,7 +66,7 @@ public class Path {
 			var neighbors = getNeighbors(current);
 			while(!neighbors.isEmpty()) {
 				var neighbor = neighbors.poll();
-				var tentativeGScore = pointIsValid(neighbor.location) ? current.gScore + moveLength : Double.POSITIVE_INFINITY;
+				var tentativeGScore = pointIsValid(current.location, neighbor.location) ? current.gScore + moveLength : Double.POSITIVE_INFINITY;
 				
 				if(tentativeGScore < neighbor.gScore) {
 					
@@ -79,9 +83,22 @@ public class Path {
 		return null;
 	}
 	
-	private boolean pointIsValid(Point testPoint) {
+	private boolean pointIsValid(Point startPoint, Point testPoint) {
 		//ToDo check if point is in no-fly space or outside of box
-		if(testPoint.latitude() > testPoint.longitude() && testPoint.longitude() > .001) return false;
+		var startX = startPoint.longitude();
+		var startY = startPoint.latitude();
+		var testX = testPoint.longitude();
+		var testY = testPoint.latitude();
+		
+		for(double[][] coord : buildingCoordinates) {
+			for(int i = 0, j = coord.length - 1; i < coord.length; j = i++) {
+				Line2D line1 = new Line2D.Double(startX, startY, testX, testY);
+				Line2D line2 = new Line2D.Double(coord[i][0], coord[i][1], coord[j][0], coord[j][1]);
+				if(line2.intersectsLine(line1)) return false;
+			}
+			
+		}
+		
 		return true;
 	}
 	
