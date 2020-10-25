@@ -21,7 +21,7 @@ public class App
     	final String year = args[2];
     	final String port = args[6];
     	
-    	/*
+    	
     	var sensorNodeList = getSensorList(day,month,year,port);
 
     	for(SensorNode node : sensorNodeList) {
@@ -31,16 +31,51 @@ public class App
     		node.setLngLat(tempLocation.getLng(), tempLocation.getLat());
     	}
     	
-    	System.out.println(getFeatureCollection(sensorNodeList).toJson());
-    	*/
-    	var pointA = Point.fromLngLat(0, 0.003);
-    	var pointB = Point.fromLngLat(.003, .002);
-    	var Path = new Path(pointA, pointB);
-    	System.out.println(Path.instructionsToString());
-    	System.out.println(Path.moveCount);
+    	
+    	
+    	List<Feature> features = getPointFeatures(sensorNodeList);
+    	features.add(getLineFeatures(sensorNodeList));
+    	System.out.println(FeatureCollection.fromFeatures(features).toJson());  
+    	
+    	
     }
     
-    private static FeatureCollection getFeatureCollection(List<SensorNode> sensorNodeList) {
+    private static Feature getLineFeatures(ArrayList<SensorNode> sensorNodeList) {
+    	
+    	RouteFinder finder = new RouteFinder(sensorNodeList);
+    	var optOrder = finder.tspInsertion();
+    	ArrayList<Path> fullPath = new ArrayList<Path>();
+    	
+    	
+    	int index = optOrder.get(0);
+    	int index2 = optOrder.get(1);
+    	Point startPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());
+    	Point aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index2).getLng(), sensorNodeList.get(index2).getLat());
+    	fullPath.add(new Path(startPoint, aimedEndPoint));
+    	
+    	for(int i = 1; i < optOrder.size(); i++) {
+    		
+    		index = optOrder.get((i + 1) % optOrder.size());
+    		
+        	startPoint = fullPath.get(i - 1).actualEndLocation;
+        	aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());
+        	
+    		fullPath.add(new Path(startPoint, aimedEndPoint));
+    	}
+    	
+    	ArrayList<Point> pointList = new ArrayList<Point>();
+    	
+    	for(Path path : fullPath) {
+    		for(Instruction inst : path.instructions) {
+    			pointList.add(inst.getPreMove());
+    			pointList.add(inst.getPostMove());
+    		}
+    	}
+    	
+    	return Feature.fromGeometry(LineString.fromLngLats(pointList));
+    }
+    
+    private static List<Feature> getPointFeatures(List<SensorNode> sensorNodeList) {
     	List<Feature> features = new ArrayList<Feature>();
     	
     	for(SensorNode node : sensorNodeList) {
@@ -52,7 +87,7 @@ public class App
     		feature.addStringProperty("marker-color", node.getColor());
     		features.add(feature);
     	}
-    	return FeatureCollection.fromFeatures(features);   
+    	return features;   
     }
     
     private static ArrayList<SensorNode> getSensorList(String day, String month, String year, String port)
