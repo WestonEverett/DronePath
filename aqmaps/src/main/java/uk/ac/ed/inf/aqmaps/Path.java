@@ -2,7 +2,6 @@ package uk.ac.ed.inf.aqmaps;
 import java.awt.geom.Line2D;
 import java.util.*;
 
-import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.Point;
 
 public class Path {

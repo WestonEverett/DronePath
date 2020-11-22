@@ -1,9 +1,7 @@
 package uk.ac.ed.inf.aqmaps;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import com.mapbox.geojson.Point;
 
 public class RouteFinder {
 	
