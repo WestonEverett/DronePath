@@ -25,10 +25,12 @@ public class Instruction {
 	
 	private int getAngle() {
 		double angle = Math.atan2(postMove.latitude() - preMove.latitude(),postMove.longitude() - preMove.longitude());
-		return (int) Math.round((angle * (180 / Math.PI)) / 10.0) * 10;
+		int processed = (int) (Math.round((angle * (180 / Math.PI)) / 10.0) * 10);
+		if(processed < 0) return processed + 360;
+		else return processed;
 	}
 	
 	public String toString() {
-		return preMove.longitude() + "," + preMove.latitude() + " " + angle + " " + postMove.longitude() + "," + postMove.latitude();
+		return preMove.longitude() + "," + preMove.latitude() + "," + angle + "," + postMove.longitude() + "," + postMove.latitude() + "," + sensorLocation;
 	}
 }

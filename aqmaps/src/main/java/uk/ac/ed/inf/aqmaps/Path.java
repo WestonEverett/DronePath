@@ -10,13 +10,15 @@ public class Path {
 	private ArrayList<double[][]> buildingCoordinates;
 	private Point startLocation;
 	private Point endLocation;
+	private String endWords;
 	public Point actualEndLocation;
 	public int moveCount;
 	private double moveLength = .0003;
 	private Hashtable<List<Integer>, Node> generatedNodes;
 	
-	public Path(Point start, Point end, ArrayList<double[][]> buildingCoordinates) {
+	public Path(Point start, Point end, String endWords, ArrayList<double[][]> buildingCoordinates) {
 		this.buildingCoordinates = buildingCoordinates;
+		this.endWords = endWords;
 		this.startLocation = start;
 		this.endLocation = end;
 		generatedNodes = new Hashtable<List<Integer>, Node>();
@@ -137,6 +139,15 @@ public class Path {
 	
 	private ArrayList<Instruction> reconstructPath(Node current){
 		var instructionSet = new ArrayList<Instruction>();
+		
+		if(current.cameFrom == null) {
+			instructionSet.add(0, new Instruction(current.location, current.location, endWords));
+		}
+		else {
+			var last = current;
+			current = current.cameFrom;
+			instructionSet.add(0, new Instruction(current.location, last.location, endWords));
+		}
 		
 		while(current.cameFrom != null) {
 			var last = current;

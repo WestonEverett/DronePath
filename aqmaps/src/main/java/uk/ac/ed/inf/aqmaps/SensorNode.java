@@ -16,6 +16,16 @@ public class SensorNode {
 	private double lng;
 	private double lat;
 	
+	public SensorNode(String location, double battery, String reading, String color, String symbol, double lng, double lat) {
+		this.location = location;
+		this.battery = battery;
+		this.reading = reading;
+		this.color = color;
+		this.symbol = symbol;
+		this.lng = lng;
+		this.lat = lat;
+	}
+	
 	public String getLocation() {
 		return location;
 	}
