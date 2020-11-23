@@ -52,7 +52,7 @@ public class App
     	
     	pointList.add(Point.fromLngLat(startLng, startLat)); //adds starting point
     	for(Path path : fullPath) { //for each Path (moves to get from one SensorNode to another) in fullPath
-    		for(Instruction inst : path.instructions) { //for each of the individual instructions in the path
+    		for(Instruction inst : path.getInstructions()) { //for each of the individual instructions in the path
     			pointList.add(inst.getPostMove()); //adds end of each move to pointList
     			
     			concat = concat + counter + "," + inst.toString() + "\n"; //adds the instruction to the string with the number instruction it is
@@ -67,6 +67,7 @@ public class App
     	var jsonStr = FeatureCollection.fromFeatures(features).toJson(); //converts the FeatureCollection to a Json String
     	saveFile(jsonStr,"readings-" + day + "-" + month + "-" + year + ".geojson"); //saves the Json String as readings-DD-MM-YYYY.geojson
     	System.out.println("Done");
+    	System.out.println(counter - 1);
     	
     }
     
@@ -139,7 +140,7 @@ public class App
     		
     		index = optOrder.get((i + 1) % optOrder.size()); //gets the index of the next node
     		
-        	startPoint = fullPath.get(i - 1).actualEndLocation; //uses the endpoint of the last path as the start point of the new one
+        	startPoint = fullPath.get(i - 1).getActualEndPoint(); //uses the endpoint of the last path as the start point of the new one
         	aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());  //gets next node location to aim for
         	
     		fullPath.add(new Path(startPoint, aimedEndPoint, sensorNodeList.get(index).getLocation(), buildingCoordinates)); //generates Path between the two points and adds it to the list
