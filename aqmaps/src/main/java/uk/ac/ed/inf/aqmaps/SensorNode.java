@@ -3,16 +3,18 @@
  */
 package uk.ac.ed.inf.aqmaps;
 
-/**
- * @author westo
- *
+/*
+ *Class for containing Sensor-related information
+ *Mainly for parsing json files, with some helper functions
+ *lng and lat do not come with parse, have to be taken from W3W file
  */
 public class SensorNode {
-	private String location;
-	private double battery;
-	private String reading;
-	private String color;
-	private String symbol;
+	private String location; //W3W String, used to select the proper location for lng and lat
+	private double battery; //sensor current battery
+	private String reading; //sensor reading
+	private String color; //color to be displayed
+	private String symbol; //symbol to be displayed
+	//coordinates of Sensor
 	private double lng;
 	private double lat;
 	
@@ -64,6 +66,9 @@ public class SensorNode {
 		this.lat = lat;
 	}
 	
+	/*
+	 * Chooses color, first ensuring reading is not null or NaN based on battery
+	 */
 	private String decideColor() {
 		if(battery < 10)		return "#000000";
 		if(reading == null)		return "#aaaaaa";
@@ -79,6 +84,9 @@ public class SensorNode {
         return "#aaaaaa";
 	}
 	
+	/*
+	 * Chooses symbol, again checking in order so valid input will not throw errors
+	 */
 	private String decideSymbol() {
 		if(battery < 10)		return "cross";
 		if(reading == null)		return "no symbol";
