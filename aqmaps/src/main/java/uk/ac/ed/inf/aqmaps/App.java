@@ -50,7 +50,7 @@ public class App
     	
     	String concat = ""; //String to be saved into flightpath file
     	
-    	pointList.add(fullPath.get(0).instructions.get(0).getPreMove()); //adds starting point
+    	pointList.add(Point.fromLngLat(startLng, startLat)); //adds starting point
     	for(Path path : fullPath) { //for each Path (moves to get from one SensorNode to another) in fullPath
     		for(Instruction inst : path.instructions) { //for each of the individual instructions in the path
     			pointList.add(inst.getPostMove()); //adds end of each move to pointList
@@ -78,12 +78,16 @@ public class App
         double[][][] coordinates; //List of building vertices in coordinates[0]
     }
     
+    /*
+     * takes in a str to save and a filename
+     * saves the file 
+     */
     private static void saveFile(String fileStr, String filename) {
     	
     	try {
-             FileWriter myWriter = new FileWriter(filename);
-             myWriter.write(fileStr);
-             myWriter.close();
+             FileWriter myWriter = new FileWriter(filename); //opens file
+             myWriter.write(fileStr); //writes to file
+             myWriter.close(); //closes file
         }
     	catch (IOException e) {
              System.out.println("An error occurred.");
@@ -91,84 +95,106 @@ public class App
         }   
     }
     
+    /*
+     * takes in the port where the server is
+     * returns all the building features
+     */
     private static List<Feature> getBuildingFeatures(String port) {
     	
+    	//gets all buildings from server
     	var response = getDataFromURI("http://localhost:" + port + "/buildings/no-fly-zones.geojson");
     	var buildingCollection = FeatureCollection.fromJson(response.body());
     	var buildingFeatures = buildingCollection.features();
     	
+    	//creates the drone containement area feature
     	List<Point> boxVertices = Arrays.asList(Point.fromLngLat(minLon, minLat), Point.fromLngLat(maxLon, minLat), Point.fromLngLat(maxLon, maxLat), Point.fromLngLat(minLon, maxLat), Point.fromLngLat(minLon, minLat));
 		List<List<Point>> boxVerticesList = Arrays.asList(boxVertices);
-		
-		//Creates a feature from the box and adds fill/color, then adds that feature to a feature list
 		Feature outerBox = Feature.fromGeometry(Polygon.fromLngLats(boxVerticesList));
 		outerBox.addNumberProperty("fill-opacity", 0);
+		
+		//adds drone containment area to building features
 		buildingFeatures.add(outerBox);
 		
 		return buildingFeatures;
     }
     
+    /*
+     * Takes in the list of SensorNodes and the list of buildings
+     * outputs a list of Path objects that visits every node and returns to the start point
+     */
     private static ArrayList<Path> getFullPath(ArrayList<SensorNode> sensorNodeList, ArrayList<double[][]> buildingCoordinates) {
     	
-    	RouteFinder finder = new RouteFinder(sensorNodeList);
-    	var optOrder = finder.tspInsertion();
-    	ArrayList<Path> fullPath = new ArrayList<Path>();
+    	var finder = new RouteFinder(sensorNodeList); //creates a RouteFinder object, which takes the list of SensorNodes and decides what order to visit them in
+    	var optOrder = finder.tspInsertion(); //runs an insertion algorithm to choose the order
     	
+    	var fullPath = new ArrayList<Path>();
     	
-    	int index = optOrder.get(0);
-    	int index2 = optOrder.get(1);
-    	Point startPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());
-    	Point aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index2).getLng(), sensorNodeList.get(index2).getLat());
-    	fullPath.add(new Path(startPoint, aimedEndPoint, sensorNodeList.get(index2).getLocation(), buildingCoordinates));
+    	var index = optOrder.get(0); //index of first node
+    	var index2 = optOrder.get(1); //index of second node
+    	var startPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat()); //first node coordinates
+    	var aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index2).getLng(), sensorNodeList.get(index2).getLat()); //second node coordinates
+    	fullPath.add(new Path(startPoint, aimedEndPoint, sensorNodeList.get(index2).getLocation(), buildingCoordinates)); //generates a path between those coordinates
     	
     	for(int i = 1; i < optOrder.size(); i++) {
     		
-    		index = optOrder.get((i + 1) % optOrder.size());
+    		index = optOrder.get((i + 1) % optOrder.size()); //gets the index of the next node
     		
-        	startPoint = fullPath.get(i - 1).actualEndLocation;
-        	aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());
+        	startPoint = fullPath.get(i - 1).actualEndLocation; //uses the endpoint of the last path as the start point of the new one
+        	aimedEndPoint = Point.fromLngLat(sensorNodeList.get(index).getLng(), sensorNodeList.get(index).getLat());  //gets next node location to aim for
         	
-    		fullPath.add(new Path(startPoint, aimedEndPoint, sensorNodeList.get(index).getLocation(), buildingCoordinates));
+    		fullPath.add(new Path(startPoint, aimedEndPoint, sensorNodeList.get(index).getLocation(), buildingCoordinates)); //generates Path between the two points and adds it to the list
     	}
     	   	
-    	return fullPath;
+    	return fullPath; //return list of Paths
     }
     
-    private static List<Feature> getPointFeatures(List<SensorNode> sensorNodeList) {
-    	List<Feature> features = new ArrayList<Feature>();
+    /*
+     * Takes in list of SensorNode objects
+     * returns all Point features from the SensorNode objects, built according to the information in them
+     */
+    private static List<Feature> getPointFeatures(List<SensorNode> sensorNodeList) { 
+    	var features = new ArrayList<Feature>();
     	
     	for(SensorNode node : sensorNodeList) {
-    		Feature feature;
-    		Point point = Point.fromLngLat(node.getLng(), node.getLat());
-    		feature = Feature.fromGeometry(point);
-    		feature.addStringProperty("rgb-string", node.getColor());
-    		feature.addStringProperty("marker-symbol", node.getSymbol());
-    		feature.addStringProperty("marker-color", node.getColor());
-    		features.add(feature);
+    		Feature feature; //creates Feature
+    		var point = Point.fromLngLat(node.getLng(), node.getLat()); //gets point from node
+    		feature = Feature.fromGeometry(point); //turns point into geometry
+    		feature.addStringProperty("rgb-string", node.getColor());//adds color
+    		feature.addStringProperty("marker-symbol", node.getSymbol());//adds symbol
+    		feature.addStringProperty("marker-color", node.getColor());//adds color again
+    		features.add(feature);//adds feature to list
     	}
-    	return features;   
+    	return features;//returns list of features
     }
     
+    /*
+     * takes in the day/month/year to operate on and the port where the webserver is
+     * returns a list of all the SensorNode objects with including their coordinates (instead of W3W format)
+     */
     private static ArrayList<SensorNode> getSensorList(String day, String month, String year, String port)
     {
-    	var response = getDataFromURI("http://localhost:" + port + "/maps/" + year + "/" + month + "/" + day + "/air-quality-data.json");
+    	var response = getDataFromURI("http://localhost:" + port + "/maps/" + year + "/" + month + "/" + day + "/air-quality-data.json"); //gets SensorNode data and converts it into SensorNode objects
     	// The response object is of class HttpResponse<String>
     	Type listType = new TypeToken<ArrayList<SensorNode>>() {}.getType();
     	// Use the ”fromJson(String, Type)” method
     	ArrayList<SensorNode> sensorNodeList = new Gson().fromJson(response.body(), listType);
     	
-    	for(SensorNode node : sensorNodeList) {
-    		if(node.getLocation() != null) {
-	    		var tempWords = node.getLocation().split("\\.");
-	    		var response2 = getDataFromURI("http://localhost:" + port + "/words/" + tempWords[0] + "/" + tempWords[1] + "/" + tempWords[2] + "/details.json");
-	    		var tempLocation = new Gson().fromJson(response2.body(), Location.class);
-	    		node.setLngLat(tempLocation.getLng(), tempLocation.getLat());
+    	for(SensorNode node : sensorNodeList) { //for each SensorNode created
+    		if(node.getLocation() != null) { //As long as it has a What3Words component
+	    		var tempWords = node.getLocation().split("\\."); //extracts the words
+	    		var response2 = getDataFromURI("http://localhost:" + port + "/words/" + tempWords[0] + "/" + tempWords[1] + "/" + tempWords[2] + "/details.json"); //reads the information from the webserver
+	    		var tempLocation = new Gson().fromJson(response2.body(), Location.class); //creates Location object from that information
+	    		node.setLngLat(tempLocation.getLng(), tempLocation.getLat()); //pulls longitude and latitude of location and adds them to SensorNode
     		}
     	}
     	
     	return sensorNodeList;
     }
     
+    /*
+     * Takes a String URL
+     * returns the corresponding Data
+     */
     private static HttpResponse<String> getDataFromURI(String uri)
     {
     	try {
@@ -180,10 +206,8 @@ public class App
     				.build();
 			return client.send(request, BodyHandlers.ofString());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
     	
