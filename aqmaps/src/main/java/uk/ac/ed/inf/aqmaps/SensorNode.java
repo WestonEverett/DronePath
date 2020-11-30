@@ -32,6 +32,13 @@ public class SensorNode {
 		return location;
 	}
 	
+	public void setToUnvisited() {
+		this.battery = 100;
+		this.reading = null;
+		this.color = "#aaaaaa";
+		this.symbol = "no symbol";
+	}
+	
 	
 	public String getColor() {
 		if(color == null) color = decideColor();

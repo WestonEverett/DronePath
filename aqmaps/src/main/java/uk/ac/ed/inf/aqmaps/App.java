@@ -20,6 +20,7 @@ public class App
 	final static double maxLat = 55.946233;
 	final static double minLon = -3.192473;
 	final static double maxLon = -3.184319;
+	final static int maxMoves = 150;
 	
     public static void main( String[] args )
     {
@@ -51,19 +52,38 @@ public class App
     	String concat = ""; //String to be saved into flightpath file
     	
     	pointList.add(Point.fromLngLat(startLng, startLat)); //adds starting point
+    	var visitedSensorLocations = new HashSet<String>();
+    	
     	for(Path path : fullPath) { //for each Path (moves to get from one SensorNode to another) in fullPath
+    		
     		for(Instruction inst : path.getInstructions()) { //for each of the individual instructions in the path
     			pointList.add(inst.getPostMove()); //adds end of each move to pointList
     			
     			concat = concat + counter + "," + inst.toString() + "\n"; //adds the instruction to the string with the number instruction it is
+    			
+    			if(inst.getSensorLocation() != null) {
+    				visitedSensorLocations.add(inst.getSensorLocation());
+    			}
+    				
+    			
+    			if(counter > maxMoves) { //breaks early if out of moves
+    				System.out.println("Out of Moves");
+    				break;
+    			}
     			counter++;
     		}
+    		if(counter > maxMoves) break; //breaks early if out of moves
     	}
     	saveFile(concat,"flightpath-" + day + "-" + month + "-" + year + ".txt"); //saves the prepared string as flightpath-DD-MM-YYYY.txt
     	
+    	sensorNodeList.remove(0); //removes the start point from sensorNodeList
+    	
+    	for(SensorNode node : sensorNodeList) { //marks all nodes not visited so they will not show readings
+    		if(!visitedSensorLocations.contains(node.getLocation())) node.setToUnvisited();
+    	}
+    	
     	var features = getPointFeatures(sensorNodeList); //gets all the points from SensorNodeList
-    	features.addAll(buildingFeatures); //adds all the buildings
-    	features.add(Feature.fromGeometry(LineString.fromLngLats(pointList))); //adds the drone containment area
+    	features.add(Feature.fromGeometry(LineString.fromLngLats(pointList))); 
     	var jsonStr = FeatureCollection.fromFeatures(features).toJson(); //converts the FeatureCollection to a Json String
     	saveFile(jsonStr,"readings-" + day + "-" + month + "-" + year + ".geojson"); //saves the Json String as readings-DD-MM-YYYY.geojson
     	System.out.println("Done");
@@ -158,11 +178,14 @@ public class App
     	
     	for(SensorNode node : sensorNodeList) {
     		Feature feature; //creates Feature
+    		
     		var point = Point.fromLngLat(node.getLng(), node.getLat()); //gets point from node
     		feature = Feature.fromGeometry(point); //turns point into geometry
+    		
+    		if(node.getSymbol() != "no symbol") feature.addStringProperty("marker-symbol", node.getSymbol());//adds symbol
     		feature.addStringProperty("rgb-string", node.getColor());//adds color
-    		feature.addStringProperty("marker-symbol", node.getSymbol());//adds symbol
     		feature.addStringProperty("marker-color", node.getColor());//adds color again
+    		
     		features.add(feature);//adds feature to list
     	}
     	return features;//returns list of features

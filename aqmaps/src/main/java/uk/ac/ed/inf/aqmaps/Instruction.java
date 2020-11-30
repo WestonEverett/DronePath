@@ -26,6 +26,10 @@ public class Instruction {
 		return postMove;
 	}
 	
+	public String getSensorLocation() {
+		return sensorLocation;
+	}
+	
 	/*
 	 * Calculates angle from points provided, rounds to nearest 10 degrees
 	 */

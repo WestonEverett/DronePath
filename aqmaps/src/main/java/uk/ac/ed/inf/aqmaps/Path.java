@@ -91,7 +91,7 @@ public class Path {
 
 			var current = openSet.poll(); //takes the node with the least estimated total distance
 			
-			if(getEuclid(current.location, endLocation) < .0002) { //if node is within .0002 of target
+			if(getEuclid(current.location, endLocation) < .0002 && current.cameFrom != null) { //if node is within .0002 of target
 				//System.out.println("Reconstructing Path");
 				actualEndLocation = current.location; //sets final location, later passed to next path as starting point
 				return reconstructPath(current); //builds path to get there
@@ -194,18 +194,13 @@ public class Path {
 		var instructionSet = new ArrayList<Instruction>(); //List of Instructions
 		
 		//Adds instruction that gets to end, so that the W3W words are on the end
-		if(current.cameFrom == null) { //if the path started in the correct place
-			instructionSet.add(0, new Instruction(current.location, current.location, endWords)); //adds a step that doesn't move
-		}
-		else {
-			var last = current;
-			current = current.cameFrom;
-			instructionSet.add(0, new Instruction(current.location, last.location, endWords));
-		}
+		var last = current;
+		current = current.cameFrom;
+		instructionSet.add(0, new Instruction(current.location, last.location, endWords));
 		
 		//Adds the rest of the instructions, prepending each one
 		while(current.cameFrom != null) {
-			var last = current;
+			last = current;
 			current = current.cameFrom;
 			instructionSet.add(0, new Instruction(current.location, last.location, null));
 		}
