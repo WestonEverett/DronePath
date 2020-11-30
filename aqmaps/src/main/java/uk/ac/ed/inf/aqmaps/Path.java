@@ -216,7 +216,7 @@ public class Path {
 	private double heuristic(Point current, Point goal) {
 		
 		double euclidDist = getEuclid(current, goal);
-		return (euclidDist * 100);
+		return (euclidDist * 10); //will make no progress for approximately 10 moves before giving up on path
 	}
 	
 	/*
