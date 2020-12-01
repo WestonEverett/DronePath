@@ -16,10 +16,7 @@ import java.net.URI;
 public class App 
 {
 	//edges of the drone containment area
-	final static double minLat = 55.942617;
-	final static double maxLat = 55.946233;
-	final static double minLon = -3.192473;
-	final static double maxLon = -3.184319;
+
 	final static int maxMoves = 150;
 	
     public static void main( String[] args )
@@ -32,11 +29,11 @@ public class App
     	final int seed = Integer.parseInt(args[5]); //seed for randomness (unused)
     	final String port = args[6]; //Server port, usually 80
     	
-    	var sensorNodeList = getSensorList(day,month,year,port); //gets list of SensorNode objects and gets their coordinates from the WebServer
-    	sensorNodeList.add(0, new SensorNode(null, 0, null, "#ffffff", "cross", startLng, startLat)); //adds the starting position, marked by a white x
+    	var sensorNodeList = FileManager.getSensorList(day,month,year,port); //gets list of SensorNode objects and gets their coordinates from the WebServer
+    	sensorNodeList.add(0, new SensorNode(null, 0, null, "#ffffff", "cross", startLng, startLat)); //adds the starting position, marked by a white x, should be removed before it is displayed
    	
-    	var buildingFeatures = getBuildingFeatures(port); //reads the buildings from WebServer into a feature list and adds the drone containment area
-		
+    	var buildingFeatures = FileManager.getBuildingFeatures(port); //reads the buildings from WebServer into a feature list and adds the drone containment area
+    	
     	var buildingCoordinates = new ArrayList<double[][]>(); //ArrayList of all the vertices sets of the buildings
     	
     	for(Feature feat : buildingFeatures) {
@@ -74,7 +71,8 @@ public class App
     		}
     		if(counter > maxMoves) break; //breaks early if out of moves
     	}
-    	saveFile(concat,"flightpath-" + day + "-" + month + "-" + year + ".txt"); //saves the prepared string as flightpath-DD-MM-YYYY.txt
+    	
+    	FileManager.saveFile(concat,"flightpath-" + day + "-" + month + "-" + year + ".txt"); //saves the prepared string as flightpath-DD-MM-YYYY.txt
     	
     	sensorNodeList.remove(0); //removes the start point from sensorNodeList
     	
@@ -85,9 +83,9 @@ public class App
     	var features = getPointFeatures(sensorNodeList); //gets all the points from SensorNodeList
     	features.add(Feature.fromGeometry(LineString.fromLngLats(pointList))); 
     	var jsonStr = FeatureCollection.fromFeatures(features).toJson(); //converts the FeatureCollection to a Json String
-    	saveFile(jsonStr,"readings-" + day + "-" + month + "-" + year + ".geojson"); //saves the Json String as readings-DD-MM-YYYY.geojson
-    	System.out.println("Done");
-    	System.out.println(counter - 1);
+    	FileManager.saveFile(jsonStr,"readings-" + day + "-" + month + "-" + year + ".geojson"); //saves the Json String as readings-DD-MM-YYYY.geojson
+    	
+    	System.out.println("Done in " + (counter - 1) + " moves");
     	
     }
     
@@ -98,47 +96,7 @@ public class App
         String type; //unused
         double[][][] coordinates; //List of building vertices in coordinates[0]
     }
-    
-    /*
-     * takes in a str to save and a filename
-     * saves the file 
-     */
-    private static void saveFile(String fileStr, String filename) {
-    	
-    	try {
-             FileWriter myWriter = new FileWriter(filename); //opens file
-             myWriter.write(fileStr); //writes to file
-             myWriter.close(); //closes file
-        }
-    	catch (IOException e) {
-             System.out.println("An error occurred.");
-             e.printStackTrace();
-        }   
-    }
-    
-    /*
-     * takes in the port where the server is
-     * returns all the building features
-     */
-    private static List<Feature> getBuildingFeatures(String port) {
-    	
-    	//gets all buildings from server
-    	var response = getDataFromURI("http://localhost:" + port + "/buildings/no-fly-zones.geojson");
-    	var buildingCollection = FeatureCollection.fromJson(response.body());
-    	var buildingFeatures = buildingCollection.features();
-    	
-    	//creates the drone containement area feature
-    	List<Point> boxVertices = Arrays.asList(Point.fromLngLat(minLon, minLat), Point.fromLngLat(maxLon, minLat), Point.fromLngLat(maxLon, maxLat), Point.fromLngLat(minLon, maxLat), Point.fromLngLat(minLon, minLat));
-		List<List<Point>> boxVerticesList = Arrays.asList(boxVertices);
-		Feature outerBox = Feature.fromGeometry(Polygon.fromLngLats(boxVerticesList));
-		outerBox.addNumberProperty("fill-opacity", 0);
-		
-		//adds drone containment area to building features
-		buildingFeatures.add(outerBox);
-		
-		return buildingFeatures;
-    }
-    
+   
     /*
      * Takes in the list of SensorNodes and the list of buildings
      * outputs a list of Path objects that visits every node and returns to the start point
@@ -191,50 +149,5 @@ public class App
     	return features;//returns list of features
     }
     
-    /*
-     * takes in the day/month/year to operate on and the port where the webserver is
-     * returns a list of all the SensorNode objects with including their coordinates (instead of W3W format)
-     */
-    private static ArrayList<SensorNode> getSensorList(String day, String month, String year, String port)
-    {
-    	var response = getDataFromURI("http://localhost:" + port + "/maps/" + year + "/" + month + "/" + day + "/air-quality-data.json"); //gets SensorNode data and converts it into SensorNode objects
-    	// The response object is of class HttpResponse<String>
-    	Type listType = new TypeToken<ArrayList<SensorNode>>() {}.getType();
-    	// Use the ”fromJson(String, Type)” method
-    	ArrayList<SensorNode> sensorNodeList = new Gson().fromJson(response.body(), listType);
-    	
-    	for(SensorNode node : sensorNodeList) { //for each SensorNode created
-    		if(node.getLocation() != null) { //As long as it has a What3Words component
-	    		var tempWords = node.getLocation().split("\\."); //extracts the words
-	    		var response2 = getDataFromURI("http://localhost:" + port + "/words/" + tempWords[0] + "/" + tempWords[1] + "/" + tempWords[2] + "/details.json"); //reads the information from the webserver
-	    		var tempLocation = new Gson().fromJson(response2.body(), Location.class); //creates Location object from that information
-	    		node.setLngLat(tempLocation.getLng(), tempLocation.getLat()); //pulls longitude and latitude of location and adds them to SensorNode
-    		}
-    	}
-    	
-    	return sensorNodeList;
-    }
     
-    /*
-     * Takes a String URL
-     * returns the corresponding Data
-     */
-    private static HttpResponse<String> getDataFromURI(String uri)
-    {
-    	try {
-    		// Create a new HttpClient with default settings.
-    		var client = HttpClient.newHttpClient();
-    		// HttpClient assumes that it is a GET request by default.
-    		var request = HttpRequest.newBuilder()
-    				.uri(URI.create(uri))
-    				.build();
-			return client.send(request, BodyHandlers.ofString());
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-    	
-    	return null;
-    }
 }

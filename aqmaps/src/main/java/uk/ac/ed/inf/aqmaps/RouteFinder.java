@@ -76,6 +76,7 @@ public class RouteFinder {
 			optionList.remove(minOpt[0]);
 		}
 		
+		System.out.println("Route Choice Done");
 		return finalList;
 	}
 	

@@ -83,21 +83,25 @@ public class Path {
 		Node startNode = new Node(Arrays.asList(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0), startLocation, 0., heuristic(startLocation,endLocation), null); //starting Node
         generatedNodes.put(startNode.coordinates, startNode);
         
-        Comparator<Node> nodeComparator = (p1, p2) -> {return (int) (p1.fScore > p2.fScore ? 1 : -1);}; //Custom comparator for Node objects
+        Comparator<Node> nodeComparator = (p1, p2) -> {return (int) (Math.signum(p1.fScore - p2.fScore));}; //Custom comparator for Node objects
 		var openSet = new PriorityQueue<Node>(nodeComparator); //Nodes to be expanded 
+		var closedSet = new PriorityQueue<Node>(nodeComparator); //Nodes already expanded
 		openSet.add(startNode); //adds the first node to the list
 		
 		while(!openSet.isEmpty()) {
 
 			var current = openSet.poll(); //takes the node with the least estimated total distance
 			
+			
 			if(getEuclid(current.location, endLocation) < .0002 && current.cameFrom != null) { //if node is within .0002 of target
 				//System.out.println("Reconstructing Path");
 				actualEndLocation = current.location; //sets final location, later passed to next path as starting point
+				System.out.println("Pathing to " + endWords + " done, openSet:" + openSet.size() + ", closedSet:" + closedSet.size() + ", generatedNodes:" + generatedNodes.size());
 				return reconstructPath(current); //builds path to get there
 			}
 			
-			var neighbors = getNeighbors(current); //gets all neighbors of current node
+			var neighbors = getNeighbors(current); //gets all neighbors of current node 
+			
 			while(!neighbors.isEmpty()) { //while there are some neighbors left
 				var neighbor = neighbors.poll(); //get first neighbor and remove from neighbor list
 				
@@ -109,11 +113,12 @@ public class Path {
 					neighbor.cameFrom = current; //the new previous node
 					neighbor.gScore = tentativeGScore; //the new traveled distance
 					neighbor.fScore = tentativeGScore + heuristic(neighbor.location,endLocation); //new estimated total
-					if(!openSet.contains(neighbor)) {
+					if(!openSet.contains(neighbor) && !closedSet.contains(neighbor)) {
 						openSet.add(neighbor); //adds new neighbors to set
 					}
 				}
 			}
+			closedSet.add(current); //current has been expanded
 		}
 		
 		return null;
@@ -216,7 +221,7 @@ public class Path {
 	private double heuristic(Point current, Point goal) {
 		
 		double euclidDist = getEuclid(current, goal);
-		return (euclidDist * 10); //will make no progress for approximately 10 moves before giving up on path
+		return euclidDist; //will make no progress for approximately 10 moves before giving up on path
 	}
 	
 	/*
