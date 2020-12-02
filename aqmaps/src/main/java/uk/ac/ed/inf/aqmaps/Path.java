@@ -108,7 +108,7 @@ public class Path {
 				//checks if move to neighbor goes through any banned areas, if not calculates a tentative new traveled distance for that note, otherwise sets it to infinity
 				var tentativeGScore = pointIsValid(current.location, neighbor.location) ? current.gScore + moveLength : Double.POSITIVE_INFINITY;
 				
-				if(tentativeGScore < neighbor.gScore) { //if the tentative traveled distance of the neighbor is less than the stored value (if any)
+				if(tentativeGScore < neighbor.gScore && tentativeGScore != Double.POSITIVE_INFINITY) { //if the tentative traveled distance of the neighbor is less than the stored value (if any)
 					
 					neighbor.cameFrom = current; //the new previous node
 					neighbor.gScore = tentativeGScore; //the new traveled distance
@@ -221,7 +221,7 @@ public class Path {
 	private double heuristic(Point current, Point goal) {
 		
 		double euclidDist = getEuclid(current, goal);
-		return euclidDist; //will make no progress for approximately 10 moves before giving up on path
+		return euclidDist * 2; //large priority on nodes closer to targe
 	}
 	
 	/*
