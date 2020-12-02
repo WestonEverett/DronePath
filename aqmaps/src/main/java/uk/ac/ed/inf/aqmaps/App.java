@@ -104,7 +104,11 @@ public class App
     private static ArrayList<Path> getFullPath(ArrayList<SensorNode> sensorNodeList, ArrayList<double[][]> buildingCoordinates) {
     	
     	var finder = new RouteFinder(sensorNodeList); //creates a RouteFinder object, which takes the list of SensorNodes and decides what order to visit them in
-    	var optOrder = finder.tspInsertion(); //runs an insertion algorithm to choose the order
+    	finder.tspInsertion(); //runs an insertion algorithm to choose the order
+    	finder.twoOptHeuristic();
+    	finder.swapHeuristic();
+    	finder.setStartNodeFirst();
+    	var optOrder = finder.getOrder();
     	
     	var fullPath = new ArrayList<Path>();
     	

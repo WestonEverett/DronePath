@@ -221,7 +221,7 @@ public class Path {
 	private double heuristic(Point current, Point goal) {
 		
 		double euclidDist = getEuclid(current, goal);
-		return euclidDist * 2; //large priority on nodes closer to targe
+		return euclidDist * 2; //large priority on nodes closer to target
 	}
 	
 	/*

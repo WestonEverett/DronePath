@@ -1,6 +1,7 @@
 package uk.ac.ed.inf.aqmaps;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /*
@@ -10,11 +11,14 @@ import java.util.List;
  */
 public class RouteFinder {
 	
-	List<SensorNode> nodes; //all nodes that need to be visited
+	ArrayList<SensorNode> nodes; //all nodes that need to be visited
+	SensorNode startnode;
+	ArrayList<Integer> order;
 	double[][] distances; //approximate distance lookup table for nodes (ignoring buildings)
 	
-	public RouteFinder(List<SensorNode> nodes) {
+	public RouteFinder(ArrayList<SensorNode> nodes) {
 		this.nodes = nodes;
+		this.startnode = nodes.get(0);
 		
 		this.distances = new double[nodes.size()][nodes.size()]; //chooses size of distances[][]
 		
@@ -26,6 +30,26 @@ public class RouteFinder {
 				distances[i][j] = getEuclid(p1, p2);
 			}
 		}
+		
+		this.order = new ArrayList<Integer>();
+		for(int i = 0; i < distances.length; i++) {
+			order.add(i);
+		}
+	}
+	
+	public ArrayList<Integer> getOrder(){
+		return order;
+	}
+	
+	public ArrayList<SensorNode> getNodeList(){
+		return nodes;
+	}
+	
+	public void setStartNodeFirst() {
+		while(nodes.get(order.get(0)) != startnode) {
+			order.add(order.size(), order.get(0));
+			order.remove(0);
+		}
 	}
 	
 	/*
@@ -34,13 +58,10 @@ public class RouteFinder {
 	 * Returns a List of the indexes, so that the index of the first node to visit in the provided list of nodes is at 
 	 * index 0 in the returned list 
 	 */
-	public List<Integer> tspInsertion(){
+	public void tspInsertion(){
 		
 		//Creates list of all indexes of nodes that need to be added
-		var optionList = new ArrayList<Integer>(); 
-		for(int i = 0; i < distances.length; i++) {
-			optionList.add(i);
-		}
+		var optionList = order;
 		
 		//initializes list of indexes for final list
 		var finalList = new ArrayList<Integer>();
@@ -76,9 +97,95 @@ public class RouteFinder {
 			optionList.remove(minOpt[0]);
 		}
 		
-		System.out.println("Route Choice Done");
-		return finalList;
+		System.out.println("Insertion Sort Done");
+		order = finalList;
 	}
+	
+	/*
+	 * Heuristic to attempt to improve path
+	 * keeps swapping nodes until it can't be improved by swapping two nodes
+	 */
+	public void swapHeuristic(){
+		boolean better = true;
+		while(better) {
+			better = false;
+			for(int i = 0; i < order.size(); i++) {
+				if(trySwap(i)) {
+					better = true; //variable to swap with next on list
+				}
+			}
+		}
+		System.out.println("Swap Heuristic Done");
+	}
+	
+	/*
+	 * checks to see if swapping the entered index of order and the next index of order is a good idea
+	 * if so, swaps and returns true
+	 * otherwise returns false
+	 */
+	private boolean trySwap(int orderIndex) { 
+		int preindex = order.get((order.size() + orderIndex - 1) % order.size()); // node connecting to original
+		int index = order.get(orderIndex); //original node
+		int postindex = order.get((order.size() + orderIndex + 1) % order.size()); //node to swap with
+		int postpostindex = order.get((order.size() + orderIndex + 2) % order.size()); //node connecting to node to swap with
+		double swap = distances[preindex][postindex] + distances[postpostindex][index]; // value of the new connections formed
+		double noSwap = distances[preindex][index] + distances[postindex][postpostindex]; //value of old connections lost
+		
+		if(swap < noSwap) { //if the swap is good, swaps them
+			int temp = order.get(orderIndex);
+			order.set(orderIndex, order.get((orderIndex + 1) % order.size()));
+			order.set((orderIndex + 1) % order.size(), temp);
+			
+			return true;
+		}
+		else return false;
+	}
+	
+	/*
+	 * Heuristic that reverses subsections of the list until no more reverses will improve the list
+	 */
+	public void twoOptHeuristic() {
+		boolean better = true;
+		while(better) {
+			better = false;
+			for(int j = 0; j < order.size() - 1; j++) {
+				for(int i = 0; i < j; i++) {
+					if(tryReverse(i,j)) { //i and j hold the endpoints of the sublist that is considering being reversed
+						better = true;
+					}
+				}
+			}
+		}
+		System.out.println("Two-Opt Heuristic Done");
+	}
+	
+	/*
+	 * Tries reversing the orders between orderi and orderj
+	 * Checks if it is more efficient to reverse them
+	 * If so, reverses them and returns true
+	 * otherwise, returns false
+	 */
+	private boolean tryReverse(int orderi, int orderj) {
+		int preI = order.get((order.size() + orderi - 1) % order.size()); //the node that attaches to i and will be changed
+		int i = order.get(orderi); 
+		int j = order.get(orderj);
+		int postj = order.get((order.size() + orderj + 1) % order.size()); //the node that attaches to j and will be changed
+		
+		double swap = distances[preI][j] + distances[i][postj]; //the cost of the two connections if swapped
+		double noSwap = distances[preI][i] + distances[j][postj]; //the cost of the two changed connections if not swapped
+		
+		if(swap < noSwap) {
+			var tempList = order.subList(orderi, orderj + 1); //temporary list holding the reversed sublist
+			Collections.reverse(tempList);
+
+			for(int k = orderi; k < orderj + 1; k++) { //copies reversed sublist into appropriate location
+				order.set(k, tempList.get(k - orderi));
+			}
+			return true;
+		}
+		return false;
+	}
+	
 	
 	/*
 	 * Calculates Euclidean distance between two points
